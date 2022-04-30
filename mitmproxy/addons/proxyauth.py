@@ -7,8 +7,8 @@ from typing import MutableMapping
 from typing import Optional
 from typing import Tuple
 
-import ldap3
-import passlib.apache
+#import ldap3
+#import passlib.apache
 
 from mitmproxy import connection, ctx
 from mitmproxy import exceptions
@@ -48,10 +48,10 @@ class ProxyAuth:
 
             if auth == "any":
                 self.validator = AcceptAll()
-            elif auth.startswith("@"):
-                self.validator = Htpasswd(auth)
-            elif ctx.options.proxyauth.startswith("ldap"):
-                self.validator = Ldap(auth)
+            #elif auth.startswith("@"):
+            #    self.validator = Htpasswd(auth)
+            #elif ctx.options.proxyauth.startswith("ldap"):
+            #    self.validator = Ldap(auth)
             elif ":" in ctx.options.proxyauth:
                 self.validator = SingleUser(auth)
             else:
@@ -188,7 +188,7 @@ class SingleUser(Validator):
     def __call__(self, username: str, password: str) -> bool:
         return self.username == username and self.password == password
 
-
+"""
 class Htpasswd(Validator):
     def __init__(self, proxyauth: str):
         path = proxyauth[1:]
@@ -199,8 +199,9 @@ class Htpasswd(Validator):
 
     def __call__(self, username: str, password: str) -> bool:
         return self.htpasswd.check_password(username, password)
+"""
 
-
+"""
 class Ldap(Validator):
     conn: ldap3.Connection
     server: ldap3.Server
@@ -267,3 +268,4 @@ class Ldap(Validator):
             if c:
                 return True
         return False
+"""

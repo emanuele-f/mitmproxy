@@ -11,13 +11,13 @@ from mitmproxy.addons import cut
 from mitmproxy.addons import disable_h2c
 from mitmproxy.addons import export
 from mitmproxy.addons import next_layer
-from mitmproxy.addons import onboarding
+#from mitmproxy.addons import onboarding
 from mitmproxy.addons import proxyserver
 from mitmproxy.addons import proxyauth
 from mitmproxy.addons import script
 from mitmproxy.addons import serverplayback
 from mitmproxy.addons import mapremote
-from mitmproxy.addons import maplocal
+#from mitmproxy.addons import maplocal
 from mitmproxy.addons import modifybody
 from mitmproxy.addons import modifyheaders
 from mitmproxy.addons import stickyauth
@@ -41,14 +41,14 @@ def default_addons():
         cut.Cut(),
         disable_h2c.DisableH2C(),
         export.Export(),
-        onboarding.Onboarding(),
+        #onboarding.Onboarding(),
         proxyauth.ProxyAuth(),
         proxyserver.Proxyserver(),
         script.ScriptLoader(),
         next_layer.NextLayer(),
         serverplayback.ServerPlayback(),
         mapremote.MapRemote(),
-        maplocal.MapLocal(),
+        #maplocal.MapLocal(),
         modifybody.ModifyBody(),
         modifyheaders.ModifyHeaders(),
         stickyauth.StickyAuth(),
