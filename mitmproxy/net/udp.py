@@ -6,7 +6,7 @@ import socket
 from typing import Any, Callable, Optional, Union, cast
 
 from mitmproxy.connection import Address
-from mitmproxy.net import udp_wireguard
+#from mitmproxy.net import udp_wireguard
 from mitmproxy.utils import human
 
 logger = logging.getLogger(__name__)
@@ -183,7 +183,7 @@ class DatagramWriter:
             self._closed = None
 
     @property
-    def _protocol(self) -> DrainableDatagramProtocol | udp_wireguard.WireGuardDatagramTransport:
+    def _protocol(self) -> DrainableDatagramProtocol:# | udp_wireguard.WireGuardDatagramTransport:
         return self._transport.get_protocol()  # type: ignore
 
     def write(self, data: bytes) -> None:

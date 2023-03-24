@@ -23,13 +23,13 @@ from pathlib import Path
 from typing import ClassVar, Generic, TypeVar, cast, get_args
 
 import errno
-import mitmproxy_wireguard as wg
+#import mitmproxy_wireguard as wg
 
 from mitmproxy import ctx, flow, platform
 from mitmproxy.connection import Address
 from mitmproxy.master import Master
 from mitmproxy.net import local_ip, udp
-from mitmproxy.net.udp_wireguard import WireGuardDatagramTransport
+#from mitmproxy.net.udp_wireguard import WireGuardDatagramTransport
 from mitmproxy.proxy import commands, layers, mode_specs, server
 from mitmproxy.proxy.context import Context
 from mitmproxy.proxy.layer import Layer
@@ -136,8 +136,8 @@ class ServerInstance(Generic[M], metaclass=ABCMeta):
 
     async def handle_tcp_connection(
         self,
-        reader: asyncio.StreamReader | wg.TcpStream,
-        writer: asyncio.StreamWriter | wg.TcpStream,
+        reader: asyncio.StreamReader,# | wg.TcpStream,
+        writer: asyncio.StreamWriter,# | wg.TcpStream,
     ) -> None:
         handler = ProxyConnectionHandler(
             ctx.master, reader, writer, ctx.options, self.mode
@@ -281,7 +281,7 @@ class AsyncioServerInstance(ServerInstance[M], metaclass=ABCMeta):
     def listen_addrs(self) -> tuple[Address, ...]:
         return self._listen_addrs
 
-
+"""
 class WireGuardServerInstance(ServerInstance[mode_specs.WireGuardMode]):
     _server: wg.Server | None = None
     _listen_addrs: tuple[Address, ...] = tuple()
@@ -354,7 +354,7 @@ class WireGuardServerInstance(ServerInstance[mode_specs.WireGuardMode]):
             return None
         host = local_ip.get_local_ip() or local_ip.get_local_ip6()
         port = self.mode.listen_port(ctx.options.listen_port)
-        return textwrap.dedent(f"""
+        return textwrap.dedent(f\"""
             [Interface]
             PrivateKey = {self.client_key}
             Address = 10.0.0.1/32
@@ -364,7 +364,7 @@ class WireGuardServerInstance(ServerInstance[mode_specs.WireGuardMode]):
             PublicKey = {wg.pubkey(self.server_key)}
             AllowedIPs = 0.0.0.0/0
             Endpoint = {host}:{port}
-            """).strip()
+            \""").strip()
 
     def to_json(self) -> dict:
         return {
@@ -398,7 +398,7 @@ class WireGuardServerInstance(ServerInstance[mode_specs.WireGuardMode]):
             remote_addr,
             local_addr
         )
-
+"""
 
 class RegularInstance(AsyncioServerInstance[mode_specs.RegularMode]):
     def make_top_layer(self, context: Context) -> Layer:
