@@ -84,7 +84,7 @@ setup(
         "kaitaistruct>=0.10,<0.11",
         "ldap3>=2.8,<2.10",
         #"mitmproxy_wireguard>=0.1.6,<0.2",
-        "msgpack>=1.0.0, <1.1.0",
+        "msgpack==1.0.6",
         "passlib>=1.6.5, <1.8",
         "protobuf>=3.14,<5",
         "pyOpenSSL>=22.1,<22.2",
