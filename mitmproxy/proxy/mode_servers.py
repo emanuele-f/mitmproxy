@@ -31,8 +31,6 @@ from typing import get_args
 from typing import TYPE_CHECKING
 from typing import TypeVar
 
-import mitmproxy_rs
-
 from mitmproxy import ctx
 from mitmproxy import flow
 from mitmproxy import platform
@@ -185,8 +183,8 @@ class ServerInstance(Generic[M], metaclass=ABCMeta):
 
     async def handle_tcp_connection(
         self,
-        reader: asyncio.StreamReader | mitmproxy_rs.TcpStream,
-        writer: asyncio.StreamWriter | mitmproxy_rs.TcpStream,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
     ) -> None:
         handler = ProxyConnectionHandler(
             ctx.master, reader, writer, ctx.options, self.mode
@@ -204,17 +202,13 @@ class ServerInstance(Generic[M], metaclass=ABCMeta):
             else:
                 handler.layer.context.client.sockname = original_dst
                 handler.layer.context.server.address = original_dst
-        elif isinstance(self.mode, (mode_specs.WireGuardMode, mode_specs.LocalMode)):
-            handler.layer.context.server.address = writer.get_extra_info(
-                "destination_address", handler.layer.context.client.sockname
-            )
 
         with self.manager.register_connection(handler.layer.context.client.id, handler):
             await handler.handle_client()
 
     def handle_udp_datagram(
         self,
-        transport: asyncio.DatagramTransport | mitmproxy_rs.DatagramTransport,
+        transport: asyncio.DatagramTransport,
         data: bytes,
         remote_addr: Address,
         local_addr: Address,
@@ -231,8 +225,6 @@ class ServerInstance(Generic[M], metaclass=ABCMeta):
             handler.layer = self.make_top_layer(handler.layer.context)
             handler.layer.context.client.transport_protocol = "udp"
             handler.layer.context.server.transport_protocol = "udp"
-            if isinstance(self.mode, (mode_specs.WireGuardMode, mode_specs.LocalMode)):
-                handler.layer.context.server.address = local_addr
 
             # pre-register here - we may get datagrams before the task is executed.
             self.manager.connections[connection_id] = handler
@@ -346,176 +338,6 @@ class AsyncioServerInstance(ServerInstance[M], metaclass=ABCMeta):
             ]
         else:
             raise AssertionError(self.mode.transport_protocol)
-
-
-class WireGuardServerInstance(ServerInstance[mode_specs.WireGuardMode]):
-    _server: mitmproxy_rs.WireGuardServer | None = None
-
-    server_key: str
-    client_key: str
-
-    def make_top_layer(self, context: Context) -> Layer:
-        return layers.modes.TransparentProxy(context)
-
-    @property
-    def is_running(self) -> bool:
-        return self._server is not None
-
-    @property
-    def listen_addrs(self) -> tuple[Address, ...]:
-        if self._server:
-            return (self._server.getsockname(),)
-        else:
-            return tuple()
-
-    async def _start(self) -> None:
-        assert self._server is None
-        host = self.mode.listen_host(ctx.options.listen_host)
-        port = self.mode.listen_port(ctx.options.listen_port)
-
-        if self.mode.data:
-            conf_path = Path(self.mode.data).expanduser()
-        else:
-            conf_path = Path(ctx.options.confdir).expanduser() / "wireguard.conf"
-
-        if not conf_path.exists():
-            conf_path.parent.mkdir(parents=True, exist_ok=True)
-            conf_path.write_text(
-                json.dumps(
-                    {
-                        "server_key": mitmproxy_rs.genkey(),
-                        "client_key": mitmproxy_rs.genkey(),
-                    },
-                    indent=4,
-                )
-            )
-
-        try:
-            c = json.loads(conf_path.read_text())
-            self.server_key = c["server_key"]
-            self.client_key = c["client_key"]
-        except Exception as e:
-            raise ValueError(f"Invalid configuration file ({conf_path}): {e}") from e
-        # error early on invalid keys
-        p = mitmproxy_rs.pubkey(self.client_key)
-        _ = mitmproxy_rs.pubkey(self.server_key)
-
-        self._server = await mitmproxy_rs.start_wireguard_server(
-            host,
-            port,
-            self.server_key,
-            [p],
-            self.wg_handle_tcp_connection,
-            self.handle_udp_datagram,
-        )
-
-        conf = self.client_conf()
-        assert conf
-        logger.info("-" * 60 + "\n" + conf + "\n" + "-" * 60)
-
-    def client_conf(self) -> str | None:
-        if not self._server:
-            return None
-        host = local_ip.get_local_ip() or local_ip.get_local_ip6()
-        port = self.mode.listen_port(ctx.options.listen_port)
-        return textwrap.dedent(
-            f"""
-            [Interface]
-            PrivateKey = {self.client_key}
-            Address = 10.0.0.1/32
-            DNS = 10.0.0.53
-
-            [Peer]
-            PublicKey = {mitmproxy_rs.pubkey(self.server_key)}
-            AllowedIPs = 0.0.0.0/0
-            Endpoint = {host}:{port}
-            """
-        ).strip()
-
-    def to_json(self) -> dict:
-        return {"wireguard_conf": self.client_conf(), **super().to_json()}
-
-    async def _stop(self) -> None:
-        assert self._server is not None
-        try:
-            self._server.close()
-            await self._server.wait_closed()
-        finally:
-            self._server = None
-
-    async def wg_handle_tcp_connection(self, stream: mitmproxy_rs.TcpStream) -> None:
-        await self.handle_tcp_connection(stream, stream)
-
-
-class LocalRedirectorInstance(ServerInstance[mode_specs.LocalMode]):
-    _server: ClassVar[mitmproxy_rs.LocalRedirector | None] = None
-    """The local redirector daemon. Will be started once and then reused for all future instances."""
-    _instance: ClassVar[LocalRedirectorInstance | None] = None
-    """The current LocalRedirectorInstance. Will be unset again if an instance is stopped."""
-    listen_addrs = ()
-
-    @property
-    def is_running(self) -> bool:
-        return self._instance is not None
-
-    def make_top_layer(self, context: Context) -> Layer:
-        return layers.modes.TransparentProxy(context)
-
-    @classmethod
-    async def redirector_handle_tcp_connection(
-        cls, stream: mitmproxy_rs.TcpStream
-    ) -> None:
-        if cls._instance is not None:
-            await cls._instance.handle_tcp_connection(stream, stream)
-
-    @classmethod
-    def redirector_handle_datagram(
-        cls,
-        transport: mitmproxy_rs.DatagramTransport,
-        data: bytes,
-        remote_addr: Address,
-        local_addr: Address,
-    ) -> None:
-        if cls._instance is not None:
-            cls._instance.handle_udp_datagram(
-                transport=transport,
-                data=data,
-                remote_addr=remote_addr,
-                local_addr=local_addr,
-            )
-
-    async def _start(self) -> None:
-        if self._instance:
-            raise RuntimeError("Cannot spawn more than one local redirector.")
-
-        if self.mode.data.startswith("!"):
-            spec = f"{self.mode.data},{os.getpid()}"
-        elif self.mode.data:
-            spec = self.mode.data
-        else:
-            spec = f"!{os.getpid()}"
-
-        cls = self.__class__
-        cls._instance = self  # assign before awaiting to avoid races
-        if cls._server is None:
-            try:
-                cls._server = await mitmproxy_rs.start_local_redirector(
-                    cls.redirector_handle_tcp_connection,
-                    cls.redirector_handle_datagram,
-                )
-            except Exception:
-                cls._instance = None
-                raise
-
-        cls._server.set_intercept(spec)
-
-    async def _stop(self) -> None:
-        assert self._instance
-        assert self._server
-        self.__class__._instance = None
-        # We're not shutting down the server because we want to avoid additional UAC prompts.
-        self._server.set_intercept("")
-
 
 class RegularInstance(AsyncioServerInstance[mode_specs.RegularMode]):
     def make_top_layer(self, context: Context) -> Layer:

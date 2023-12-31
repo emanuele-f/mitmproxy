@@ -30,8 +30,6 @@ from functools import cache
 from typing import ClassVar
 from typing import Literal
 
-import mitmproxy_rs
-
 from mitmproxy.coretypes.serializable import Serializable
 from mitmproxy.net import server_spec
 
@@ -273,28 +271,6 @@ class DnsMode(ProxyMode):
 #
 #     def __post_init__(self) -> None:
 #         _check_empty(self.data)
-
-
-class WireGuardMode(ProxyMode):
-    """Proxy Server based on WireGuard"""
-
-    description = "WireGuard server"
-    default_port = 51820
-    transport_protocol = UDP
-
-    def __post_init__(self) -> None:
-        pass
-
-
-class LocalMode(ProxyMode):
-    """OS-level transparent proxy."""
-
-    description = "Local redirector"
-    transport_protocol = None
-
-    def __post_init__(self) -> None:
-        # should not raise
-        mitmproxy_rs.LocalRedirector.describe_spec(self.data)
 
 
 class OsProxyMode(ProxyMode):  # pragma: no cover

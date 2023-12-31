@@ -8,8 +8,6 @@ from typing import Any
 from typing import cast
 from typing import Union
 
-import mitmproxy_rs
-
 from mitmproxy.connection import Address
 from mitmproxy.utils import human
 
@@ -162,14 +160,14 @@ class DatagramReader:
 
 
 class DatagramWriter:
-    _transport: asyncio.DatagramTransport | mitmproxy_rs.DatagramTransport
+    _transport: asyncio.DatagramTransport
     _remote_addr: Address
     _reader: DatagramReader | None
     _closed: asyncio.Event | None
 
     def __init__(
         self,
-        transport: asyncio.DatagramTransport | mitmproxy_rs.DatagramTransport,
+        transport: asyncio.DatagramTransport,
         remote_addr: Address,
         reader: DatagramReader | None = None,
     ) -> None:
@@ -189,7 +187,7 @@ class DatagramWriter:
     @property
     def _protocol(
         self,
-    ) -> DrainableDatagramProtocol | mitmproxy_rs.DatagramTransport:
+    ) -> DrainableDatagramProtocol:
         return self._transport.get_protocol()  # type: ignore
 
     def write(self, data: bytes) -> None:

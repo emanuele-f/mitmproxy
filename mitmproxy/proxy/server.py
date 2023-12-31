@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from types import TracebackType
 from typing import Literal
 
-import mitmproxy_rs
 from OpenSSL import SSL
 
 from mitmproxy import http
@@ -91,10 +90,10 @@ class TimeoutWatchdog:
 class ConnectionIO:
     handler: asyncio.Task | None = None
     reader: None | (
-        asyncio.StreamReader | udp.DatagramReader | mitmproxy_rs.TcpStream
+        asyncio.StreamReader | udp.DatagramReader
     ) = None
     writer: None | (
-        asyncio.StreamWriter | udp.DatagramWriter | mitmproxy_rs.TcpStream
+        asyncio.StreamWriter | udp.DatagramWriter
     ) = None
 
 
@@ -450,8 +449,8 @@ class ConnectionHandler(metaclass=abc.ABCMeta):
 class LiveConnectionHandler(ConnectionHandler, metaclass=abc.ABCMeta):
     def __init__(
         self,
-        reader: asyncio.StreamReader | mitmproxy_rs.TcpStream,
-        writer: asyncio.StreamWriter | mitmproxy_rs.TcpStream,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
         options: moptions.Options,
         mode: mode_specs.ProxyMode,
     ) -> None:
