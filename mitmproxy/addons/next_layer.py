@@ -36,18 +36,14 @@ from mitmproxy.proxy import mode_specs
 from mitmproxy.proxy import tunnel
 from mitmproxy.proxy.context import Context
 from mitmproxy.proxy.layer import Layer
-from mitmproxy.proxy.layers import ClientQuicLayer
 from mitmproxy.proxy.layers import ClientTLSLayer
 from mitmproxy.proxy.layers import DNSLayer
 from mitmproxy.proxy.layers import HttpLayer
 from mitmproxy.proxy.layers import modes
-from mitmproxy.proxy.layers import RawQuicLayer
-from mitmproxy.proxy.layers import ServerQuicLayer
 from mitmproxy.proxy.layers import ServerTLSLayer
 from mitmproxy.proxy.layers import TCPLayer
 from mitmproxy.proxy.layers import UDPLayer
 from mitmproxy.proxy.layers.http import HTTPMode
-from mitmproxy.proxy.layers.quic import quic_parse_client_hello
 from mitmproxy.proxy.layers.tls import dtls_parse_client_hello
 from mitmproxy.proxy.layers.tls import HTTP_ALPNS
 from mitmproxy.proxy.layers.tls import parse_client_hello
@@ -156,11 +152,6 @@ class NextLayer:
             server_tls = ServerTLSLayer(context)
             server_tls.child_layer = ClientTLSLayer(context)
             return server_tls
-        # 3b) QUIC
-        if udp_based and _starts_like_quic(data_client):
-            server_quic = ServerQuicLayer(context)
-            server_quic.child_layer = ClientQuicLayer(context)
-            return server_quic
 
         # 4)  Check for --tcp/--udp
         if tcp_based and self._is_destination_in_hosts(context, self.tcp_hosts):
@@ -277,11 +268,6 @@ class NextLayer:
                 return None
             case "udp":
                 try:
-                    return quic_parse_client_hello(data_client)
-                except ValueError:
-                    pass
-
-                try:
                     ch = dtls_parse_client_hello(data_client)
                 except ValueError:
                     pass
@@ -339,15 +325,6 @@ class NextLayer:
                 #     stack /= ClientTLSLayer(context)
                 stack /= DNSLayer(context)
 
-            case "http3":
-                stack /= ServerQuicLayer(context)
-                stack /= ClientQuicLayer(context)
-                stack /= HttpLayer(context, HTTPMode.transparent)
-            case "quic":
-                stack /= ServerQuicLayer(context)
-                stack /= ClientQuicLayer(context)
-                stack /= RawQuicLayer(context)
-
             case _:  # pragma: no cover
                 assert_never(spec.scheme)
 
@@ -356,9 +333,7 @@ class NextLayer:
     def _setup_explicit_http_proxy(self, context: Context, data_client: bytes) -> Layer:
         stack = tunnel.LayerStack()
 
-        if context.client.transport_protocol == "udp":
-            stack /= layers.ClientQuicLayer(context)
-        elif starts_like_tls_record(data_client):
+        if starts_like_tls_record(data_client):
             stack /= layers.ClientTLSLayer(context)
 
         if isinstance(context.layers[0], modes.HttpUpstreamProxy):
@@ -376,14 +351,3 @@ class NextLayer:
             or (context.client.sni and rex.search(context.client.sni))
             for rex in hosts
         )
-
-
-def _starts_like_quic(data_client: bytes) -> bool:
-    # FIXME: handle clienthellos distributed over multiple packets?
-    # FIXME: perf
-    try:
-        quic_parse_client_hello(data_client)
-    except ValueError:
-        return False
-    else:
-        return True

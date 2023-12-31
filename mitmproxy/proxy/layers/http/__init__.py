@@ -11,7 +11,6 @@ import wsproto.handshake
 from ...context import Context
 from ...mode_specs import ReverseMode
 from ...mode_specs import UpstreamMode
-from ..quic import QuicStreamEvent
 from ._base import HttpCommand
 from ._base import HttpConnection
 from ._base import ReceiveHttp
@@ -38,8 +37,6 @@ from ._http1 import Http1Connection
 from ._http1 import Http1Server
 from ._http2 import Http2Client
 from ._http2 import Http2Server
-from ._http3 import Http3Client
-from ._http3 import Http3Server
 from mitmproxy import flow
 from mitmproxy import http
 from mitmproxy.connection import Connection
@@ -53,7 +50,6 @@ from mitmproxy.proxy import commands
 from mitmproxy.proxy import events
 from mitmproxy.proxy import layer
 from mitmproxy.proxy import tunnel
-from mitmproxy.proxy.layers import quic
 from mitmproxy.proxy.layers import tcp
 from mitmproxy.proxy.layers import tls
 from mitmproxy.proxy.layers import websocket
@@ -861,9 +857,7 @@ class HttpLayer(layer.Layer):
     def _handle_event(self, event: events.Event):
         if isinstance(event, events.Start):
             http_conn: HttpConnection
-            if is_h3_alpn(self.context.client.alpn):
-                http_conn = Http3Server(self.context.fork())
-            elif self.context.client.alpn == b"h2":
+            if self.context.client.alpn == b"h2":
                 http_conn = Http2Server(self.context.fork())
             else:
                 http_conn = Http1Server(self.context.fork())
@@ -907,13 +901,11 @@ class HttpLayer(layer.Layer):
                 if isinstance(event, events.ConnectionClosed):
                     # The peer has closed it - let's close it too!
                     yield commands.CloseConnection(event.connection)
-                elif isinstance(event, (events.DataReceived, QuicStreamEvent)):
+                elif isinstance(event, events.DataReceived):
                     # The peer has sent data or another connection activity occurred.
                     # This can happen with HTTP/2 servers that already send a settings frame.
                     child_layer: HttpConnection
-                    if is_h3_alpn(self.context.server.alpn):
-                        child_layer = Http3Client(self.context.fork())
-                    elif self.context.server.alpn == b"h2":
+                    if self.context.server.alpn == b"h2":
                         child_layer = Http2Client(self.context.fork())
                     else:
                         child_layer = Http1Client(self.context.fork())
@@ -1054,8 +1046,6 @@ class HttpLayer(layer.Layer):
                     context.server.sni = event.address[0]
                 if context.server.transport_protocol == "tcp":
                     stack /= tls.ServerTLSLayer(context)
-                elif context.server.transport_protocol == "udp":
-                    stack /= quic.ServerQuicLayer(context)
                 else:
                     raise AssertionError(
                         context.server.transport_protocol
@@ -1109,9 +1099,7 @@ class HttpClient(layer.Layer):
         else:
             err = yield commands.OpenConnection(self.context.server)
         if not err:
-            if is_h3_alpn(self.context.server.alpn):
-                self.child_layer = Http3Client(self.context)
-            elif self.context.server.alpn == b"h2":
+            if self.context.server.alpn == b"h2":
                 self.child_layer = Http2Client(self.context)
             else:
                 self.child_layer = Http1Client(self.context)
