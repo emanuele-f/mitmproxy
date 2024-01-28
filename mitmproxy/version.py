@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-VERSION = "10.1.6"
+VERSION = "10.1.6+pcapdroid.1"
 MITMPROXY = "mitmproxy " + VERSION
 
 # Serialization format version. This is displayed nowhere, it just needs to be incremented by one
