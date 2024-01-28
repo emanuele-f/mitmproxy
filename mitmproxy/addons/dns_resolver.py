@@ -141,13 +141,7 @@ async def resolve_message(
 class DnsResolver:
     async def dns_request(self, flow: dns.DNSFlow) -> None:
         should_resolve = (
-            (
-                isinstance(flow.client_conn.proxy_mode, mode_specs.DnsMode)
-                or (
-                    isinstance(flow.client_conn.proxy_mode, mode_specs.WireGuardMode)
-                    and flow.server_conn.address == ("10.0.0.53", 53)
-                )
-            )
+            isinstance(flow.client_conn.proxy_mode, mode_specs.DnsMode)
             and flow.live
             and not flow.response
             and not flow.error
