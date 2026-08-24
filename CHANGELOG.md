@@ -7,6 +7,9 @@
 
 ## Unreleased: mitmproxy next
 
+- Fix `Transparent mode not supported on this platform.` on Android.
+  Python 3.13 reports `sys.platform` as `android` instead of `linux`,
+  which made platform detection fall through to the unsupported branch.
 - Replace deprecated pyparsing APIs with their snake_case equivalents to avoid
   `PyparsingDeprecationWarning` during command and flow-filter parsing.
   ([#8344](https://github.com/mitmproxy/mitmproxy/pull/8344), @Dnsayhey)
