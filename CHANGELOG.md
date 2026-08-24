@@ -7,6 +7,9 @@
 
 ## Unreleased: mitmproxy next
 
+- Fix `Transparent mode not supported on this platform.` on Android.
+  Python 3.13 reports `sys.platform` as `android` instead of `linux`,
+  which made platform detection fall through to the unsupported branch.
 
 ## 22 October 2026: mitmproxy 12.3.0
 
